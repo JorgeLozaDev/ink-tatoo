@@ -43,8 +43,11 @@ const errorHandler = (
   if (err.message === "El usuario ya existe")
     return res.status(409).json({ message: "El usuario ya existe" });
 
-  if (err.message === "Usuario no encontrado")
+  if (err.message === "Usuario no existe")
     return res.status(404).json({ message: "Usuario no encontrado" });
+
+  if (err.message === "Usuario o contraseña incorrectas")
+    return res.status(404).json({ message: "Usuario o contraseña incorrectas" });
 
   if (err.message === "Credenciales incorrectas")
     return res.status(401).json({ message: "Credenciales incorrectas" });
