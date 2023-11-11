@@ -3,6 +3,7 @@ import User from "./model";
 import CONF from "../../core/config";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import AuthenticatedRequest from "../../core/customInterfaces";
 // import errorHandler from '../middlewares/errorHandler';
 
 export const singUp = async (
@@ -116,3 +117,60 @@ export const loginUser = async (
   }
 };
 
+// Controlador para actualizar datos personales del usuario
+export const updateProfile = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { name, lastname, email, username } = req.body;
+    const userId = req.user.id; // Obtén el ID del usuario autenticado desde el middleware
+
+    // Crear un objeto para almacenar los campos faltantes
+    const missingFields: string[] = [];
+
+    if (!name || name.trim() === "") {
+      missingFields.push("name");
+    }
+    if (!lastname || lastname.trim() === "") {
+      missingFields.push("lastname");
+    }
+    if (!email || email.trim() === "") {
+      missingFields.push("email");
+    }
+    if (!username || username.trim() === "") {
+      missingFields.push("username");
+    }
+
+    if (missingFields.length > 0) {
+      // Lanza un error con un código de estado HTTP personalizado
+      const error = new Error("Campos requeridos faltantes");
+      (error as any).status = 400;
+      (error as any).missingFields = missingFields;
+      throw error;
+    }
+
+    // Busca al usuario por ID
+    const user = await User.findById(userId);
+
+    if (!user) {
+      const error = new Error("Usuario no encontrado");
+      (error as any).status = 404;
+      throw error;
+    }
+
+    // Actualiza los datos personales del usuario
+    user.name = name;
+    user.lastname = lastname;
+    user.email = email;
+    user.username = username;
+    await user.save();
+
+    res
+      .status(200)
+      .json({ message: "Datos personales actualizados con éxito" });
+  } catch (error) {
+    next(error);
+  }
+};
