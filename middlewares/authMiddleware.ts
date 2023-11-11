@@ -1,15 +1,27 @@
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
+import CONF from "../core/config";
+import { Request, Response, NextFunction } from "express";
 
-const authMiddleware = (req, res, next) => {
+interface AuthenticatedRequest extends Request {
+  user?: any; // o cualquier otro tipo que desees para el usuario
+}
+
+const authMiddleware = (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     // Verificar el token JWT en la cabecera de la solicitud
-    const token = req.header('Authorization');
+    const token = req.header("Authorization");
 
     if (!token) {
-      throw new Error('Token no proporcionado');
+      throw new Error("Token no proporcionado");
     }
 
-    const decoded = jwt.verify(token, 'secret-key'); // Reemplaza 'secret-key' con tu clave secreta real
+    // el token nos viene un string, un espacio y el token, con esto solamente recogemos el token y lo comprobamos
+    const t = token.split(" ")[1];
+    const decoded = jwt.verify(t, "secret-key");
 
     req.user = decoded;
     next();
@@ -18,4 +30,4 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-module.exports = authMiddleware;
+export = authMiddleware;
