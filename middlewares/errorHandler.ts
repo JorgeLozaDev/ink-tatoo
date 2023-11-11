@@ -6,13 +6,16 @@ interface CustomError extends Error {
   errors?: any;
 }
 
+interface MissingFieldsError extends CustomError {
+  missingFields: string[];
+}
+
 const errorHandler = (
   err: CustomError,
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
-    
   if (err.name === "ValidationError") {
     // Utiliza type assertion para especificar el tipo de error
     const validationError = err as Error & { errors: Record<string, any> };
@@ -28,13 +31,29 @@ const errorHandler = (
     }
   }
 
-  if (err.message === "Usuario no encontrado") return res.status(404).json({ message: "Usuario no encontrado" });
+  if (err.message === "Campos requeridos faltantes") {
+    const missingFieldsError = err as MissingFieldsError;
+    return res
+      .status(400)
+      .json({
+        message: err.message,
+        missingFields: missingFieldsError.missingFields,
+      });
+  }
+  if (err.message === "El usuario ya existe")
+    return res.status(409).json({ message: "El usuario ya existe" });
 
-  if (err.message === "Credenciales incorrectas") return res.status(401).json({ message: "Credenciales incorrectas" });
+  if (err.message === "Usuario no encontrado")
+    return res.status(404).json({ message: "Usuario no encontrado" });
 
-  if (err.message === "Token no proporcionado") return res.status(401).json({ message: "Token no proporcionado" });
+  if (err.message === "Credenciales incorrectas")
+    return res.status(401).json({ message: "Credenciales incorrectas" });
 
-  if (err.name === "JsonWebTokenError")  return res.status(401).json({ message: "Token JWT no válido" });
+  if (err.message === "Token no proporcionado")
+    return res.status(401).json({ message: "Token no proporcionado" });
+
+  if (err.name === "JsonWebTokenError")
+    return res.status(401).json({ message: "Token JWT no válido" });
 
   // Otros tipos de errores
   const statusCode = err.status || 500;

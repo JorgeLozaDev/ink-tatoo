@@ -10,6 +10,10 @@ const tattooMediaSchema = new mongoose.Schema({
   description: { type: String },
   // Otros campos relacionados con el tatuaje, como estilo, tamaño, etc.
   isDeleted: { type: Boolean, default: false }, // Nuevo campo para el borrado lógico.
+},
+{
+  versionKey: false,
+  timestamps: true,
 });
 
 const tattoMedia = mongoose.model("tattoMedia", tattooMediaSchema);
