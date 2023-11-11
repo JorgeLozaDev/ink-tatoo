@@ -23,6 +23,6 @@ const meetingsSchema = new mongoose.Schema(
   }
 );
 
-const meetings = mongoose.model("meetings", meetingsSchema);
+const meetings = mongoose.model("meetings", meetingsSchema); 
 
 export = meetings;
