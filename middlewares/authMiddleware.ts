@@ -21,8 +21,8 @@ const authMiddleware = (
 
     // el token nos viene un string, un espacio y el token, con esto solamente recogemos el token y lo comprobamos
     const t = token.split(" ")[1];
-    const decoded = jwt.verify(t, "secret-key");
-
+    const decoded = jwt.verify(t, CONF.JWT_SECRET);
+    
     req.user = decoded;
     next();
   } catch (error) {
@@ -30,4 +30,4 @@ const authMiddleware = (
   }
 };
 
-export = authMiddleware;
+export {authMiddleware};
