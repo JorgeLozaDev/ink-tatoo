@@ -1,0 +1,11 @@
+{
+    "compilerOptions": {
+        "target": "es6",
+        "module": "commonjs",
+        "sourceMap": true,
+        "strictNullChecks": true,
+        "outDir": "dist/",
+        "allowSyntheticDefaultImports": true,
+        "esModuleInterop":true
+    }    
+}   

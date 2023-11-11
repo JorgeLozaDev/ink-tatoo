@@ -1,0 +1,5 @@
+{
+    "ignore": ["dist"],
+    "ext": "js,ts,json",
+    "exec": "tsc && node ./dist/app.js"
+}
