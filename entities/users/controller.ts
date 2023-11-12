@@ -112,17 +112,17 @@ export const loginUser = async (
     );
 
     // Crear un objeto con los datos del usuario y el token
-    const userData = {
-      id: user._id,
-      name: user.name,
-      lastname: user.lastname,
-      email: user.email,
-      username: user.username,
-      role: user.role,
-      // Agrega aquí otros campos del usuario que desees incluir en la respuesta
-    };
+    // const userData = {
+    //   id: user._id,
+    //   name: user.name,
+    //   lastname: user.lastname,
+    //   email: user.email,
+    //   username: user.username,
+    //   role: user.role,
+    //   // Agrega aquí otros campos del usuario que desees incluir en la respuesta
+    // };
 
-    res.status(200).json({ token, user: userData });
+    res.status(200).json({ token });
   } catch (error) {
     next(error);
   }

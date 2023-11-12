@@ -22,16 +22,16 @@ const authMiddleware = (
 
     // el token nos viene un string, un espacio y el token, con esto solamente recogemos el token y lo comprobamos
     const t = token.split(" ")[1];
-    const decoded = jwt.verify(t, CONF.JWT_SECRET, (err, user) => {
-      if (err) {
-        const error = new Error("JsonWebTokenError");
-        (error as any).status = 401;
-        throw error;
-      }
-      req.user = decoded;
-      next();
-    });
+    const decoded = jwt.verify(t, CONF.JWT_SECRET);
+    req.user = decoded;
+    next();
   } catch (error) {
+    if (error.name === "JsonWebTokenError") {
+      // Error relacionado con el token JWT
+      const error = new Error("JsonWebTokenError");
+      (error as any).status = 401;
+      throw error;
+    }
     next(error);
   }
 };
