@@ -111,7 +111,18 @@ export const loginUser = async (
       { expiresIn: "24h" }
     );
 
-    res.status(200).json({ token });
+    // Crear un objeto con los datos del usuario y el token
+    const userData = {
+      id: user._id,
+      name: user.name,
+      lastname: user.lastname,
+      email: user.email,
+      username: user.username,
+      role: user.role,
+      // Agrega aquí otros campos del usuario que desees incluir en la respuesta
+    };
+
+    res.status(200).json({ token, user: userData });
   } catch (error) {
     next(error);
   }
@@ -124,7 +135,7 @@ export const updateProfile = async (
   next: NextFunction
 ) => {
   try {
-    const { name, lastname, email, username } = req.body;
+    const { name, lastname, email, username, password } = req.body;
     const userId = req.user.id; // Obtén el ID del usuario autenticado desde el middleware
 
     // Crear un objeto para almacenar los campos faltantes
@@ -165,11 +176,52 @@ export const updateProfile = async (
     user.lastname = lastname;
     user.email = email;
     user.username = username;
-    await user.save();
+    // Si la contraseña cambia, puedes volver a generar el token
+    if (password && password.trim() != "") {
+      // Encripta la nueva contraseña antes de almacenarla en la base de datos
+      const hashedPassword = await bcrypt.hash(password, CONF.BCRYTP_LOOP);
+      user.password = hashedPassword;
 
-    res
-      .status(200)
-      .json({ message: "Datos personales actualizados con éxito" });
+      // Genera y firma un nuevo token JWT
+      const token = jwt.sign(
+        { id: user._id, username: user.username, role: user.role },
+        CONF.JWT_SECRET,
+        { expiresIn: "24h" }
+      );
+
+      res
+        .status(200)
+        .json({ message: "Datos personales actualizados con éxito", token });
+    } else {
+      await user.save();
+      res
+        .status(200)
+        .json({ message: "Datos personales actualizados con éxito" });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Controlador para obtener el perfil del usuario
+export const getProfile = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.user.id; // Obtén el ID del usuario autenticado desde el middleware
+
+    // Busca al usuario por ID
+    const user = await User.findById(userId);
+
+    if (!user) {
+      const error = new Error("Usuario no encontrado");
+      (error as any).status = 404;
+      throw error;
+    }
+
+    res.status(200).json(user);
   } catch (error) {
     next(error);
   }
