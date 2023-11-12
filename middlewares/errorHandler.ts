@@ -57,6 +57,8 @@ const errorHandler = (
 
   if (err.name === "JsonWebTokenError")
     return res.status(401).json({ message: "Token JWT no válido" });
+  if (err.name === "No tienes permiso para editar esta cita")
+    return res.status(401).json({ message: "No tienes permiso para editar esta cita" });
 
   // Otros tipos de errores
   const statusCode = err.status || 500;
