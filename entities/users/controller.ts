@@ -4,7 +4,7 @@ import CONF from "../../core/config";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import AuthenticatedRequest from "../../core/customInterfaces";
-// import errorHandler from '../middlewares/errorHandler';
+
 
 export const singUp = async (
   req: Request,

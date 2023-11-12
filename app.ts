@@ -7,10 +7,10 @@ app.use(express.json());
 
 // ROUTER
 import userRouter from "./entities/users/router";
-// import tatoRouter from "./entities/tatuador/routes";
+import meetingsRouter from "./entities/meetings/router";
 
 app.use("/user/", userRouter);
-// app.use("/tatoo/", tatoRouter);
+app.use("/meetings/", meetingsRouter);
 app.use(errorHandler);
 
 app.listen(3000, () => console.log("Servidor levantado en 3000"));
