@@ -2,7 +2,7 @@ import express, { Request, Response } from "express";
 import "dotenv/config";
 import errorHandler from "./middlewares/errorHandler";
 
-const app = express();
+const app = express();   
 app.use(express.json());
 
 // ROUTER
