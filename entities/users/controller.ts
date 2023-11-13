@@ -5,7 +5,6 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import AuthenticatedRequest from "../../core/customInterfaces";
 
-
 export const singUp = async (
   req: Request,
   res: Response,
@@ -13,7 +12,8 @@ export const singUp = async (
 ) => {
   try {
     // Obtener datos del cuerpo de la solicitud
-    const { name, lastname, email, username, password, role } = req.body;
+    const { name, lastname, email, username, password, role, birthday } =
+      req.body;
 
     // Crear un objeto para almacenar los campos faltantes
     const missingFields: string[] = [];
@@ -34,6 +34,22 @@ export const singUp = async (
       missingFields.push("password");
     }
 
+    let userBirthday: Date | null = null; // Valor predeterminado
+
+    if (birthday && birthday.trim() != "") {
+      // Verificar que la fecha sea válida (a partir de today)
+      userBirthday = new Date(birthday);
+      const today = new Date();
+
+      const age = today.getFullYear() - userBirthday.getFullYear();
+      if (age < 16) {
+        const error = new Error(
+          "Debes tener al menos 16 años para registrarte"
+        );
+        (error as any).status = 400;
+        throw error;
+      }
+    }
     // Asignar el rol por defecto si "role" viene vacío
     const userRole = role || "user";
 
@@ -66,6 +82,7 @@ export const singUp = async (
       username,
       password: hashedPassword,
       role: userRole,
+      birthday: userBirthday,
     });
     await newUser.save();
 
@@ -85,7 +102,7 @@ export const loginUser = async (
     const { email, password } = req.body;
 
     // Buscar al usuario por nombre de usuario
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
       // Lanza un error con un código de estado HTTP personalizado
@@ -96,7 +113,6 @@ export const loginUser = async (
 
     // Verificar la contraseña
     const isPasswordValid = await bcrypt.compare(password, user.password);
-
     if (!isPasswordValid) {
       // Lanza un error con un código de estado HTTP personalizado
       const error = new Error("Usuario o contraseña incorrectas");
@@ -111,17 +127,6 @@ export const loginUser = async (
       { expiresIn: "24h" }
     );
 
-    // Crear un objeto con los datos del usuario y el token
-    // const userData = {
-    //   id: user._id,
-    //   name: user.name,
-    //   lastname: user.lastname,
-    //   email: user.email,
-    //   username: user.username,
-    //   role: user.role,
-    //   // Agrega aquí otros campos del usuario que desees incluir en la respuesta
-    // };
-
     res.status(200).json({ token });
   } catch (error) {
     next(error);
@@ -135,8 +140,16 @@ export const updateProfile = async (
   next: NextFunction
 ) => {
   try {
-    const { name, lastname, email, username, password } = req.body;
+    const { name, lastname, email, username, password, birthday } = req.body;
     const userId = req.user.id; // Obtén el ID del usuario autenticado desde el middleware
+    const currentUser = req.user; // Obtén los datos del usuario autenticado
+
+    // Comprobar que solo el propio usuario o un superadmin pueden editar
+    if (currentUser.role !== "user" && currentUser.role !== "superadmin") {
+      const error = new Error("No tienes permiso para editar estos datos");
+      (error as any).status = 403;
+      throw error;
+    }
 
     // Crear un objeto para almacenar los campos faltantes
     const missingFields: string[] = [];
@@ -147,9 +160,9 @@ export const updateProfile = async (
     if (!lastname || lastname.trim() === "") {
       missingFields.push("lastname");
     }
-    if (!email || email.trim() === "") {
-      missingFields.push("email");
-    }
+    // if (!email || email.trim() === "") {
+    //   missingFields.push("email");
+    // }
     if (!username || username.trim() === "") {
       missingFields.push("username");
     }
@@ -171,10 +184,25 @@ export const updateProfile = async (
       throw error;
     }
 
+    if (birthday && birthday.trim() != "") {
+      // Verificar que la fecha sea válida (a partir de today)
+      let userBirthday = new Date(birthday);
+      const today = new Date();
+
+      const age = today.getFullYear() - userBirthday.getFullYear();
+      if (age < 16) {
+        const error = new Error(
+          "Debes tener al menos 16 años para registrarte"
+        );
+        (error as any).status = 400;
+        throw error;
+      }
+      user.birthday = userBirthday;
+    }
     // Actualiza los datos personales del usuario
     user.name = name;
     user.lastname = lastname;
-    user.email = email;
+    // user.email = email;
     user.username = username;
     // Si la contraseña cambia, puedes volver a generar el token
     if (password && password.trim() != "") {

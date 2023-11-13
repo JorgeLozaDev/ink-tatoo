@@ -101,8 +101,8 @@ export const editMeeting = async (
     // Verificar permisos de edición
     if (
       (currentUser.role === "user" && meeting.client.toString() !== currentUser.id) ||
-        (currentUser.role === "tatooArtist" &&  meeting.tattooArtist && meeting.tattooArtist.toString() !== currentUser.id) ||
-      currentUser.role === "superadmin"
+        (currentUser.role === "tatooArtist" &&  meeting.tattooArtist && meeting.tattooArtist.toString() !== currentUser.id) 
+        // ||  currentUser.role === "superadmin"
     ) {
       const error = new Error("No tienes permiso para editar esta cita");
       (error as any).status = 403; // 403 Forbidden
