@@ -12,7 +12,14 @@ export const createMeeting = async (
   next: NextFunction
 ) => {
   try {
-    const { client, tattooArtist, dateMetting, typeIntervention } = req.body;
+    const {
+      client,
+      tattooArtist,
+      dateMetting,
+      dateMettingEnd,
+      typeIntervention,
+      price,
+    } = req.body;
 
     // Crear un objeto para almacenar los campos faltantes
     const missingFields: string[] = [];
@@ -25,6 +32,9 @@ export const createMeeting = async (
     }
     if (!dateMetting || dateMetting.trim() === "") {
       missingFields.push("dateMetting");
+    }
+    if (!dateMettingEnd || dateMettingEnd.trim() === "") {
+      missingFields.push("dateMettingEnd");
     }
     if (!typeIntervention || typeIntervention.trim() === "") {
       missingFields.push("typeIntervention");
@@ -40,6 +50,7 @@ export const createMeeting = async (
 
     // Verificar que la fecha sea válida (a partir de today)
     const dateMeet = new Date(dateMetting);
+    const dateMeetEnd = new Date(dateMettingEnd);
     const today = new Date();
     if (dateMeet <= today) {
       const error = new Error("La fecha de la cita debe ser a partir de hoy");
@@ -47,10 +58,43 @@ export const createMeeting = async (
       throw error;
     }
 
-    // Verificar que el tatuador no tenga otra cita en la misma fecha y hora
+    // Verificar que dateMettingEnd no sea inferior a dateMetting
+    if (dateMeetEnd < dateMeet) {
+      const error = new Error(
+        "La fecha de finalización no puede ser anterior a la fecha de inicio"
+      );
+      (error as any).status = 400;
+      throw error;
+    }
+
+    // Verificar que el tatuador no tenga otra cita en el mismo rango de fechas
     const dateExist = await Meetings.findOne({
       tattooArtist,
-      dateMetting,
+      $or: [
+        {
+          // Caso 1: La fecha de inicio de la cita está dentro del rango
+          dateMetting: {
+            $gte: dateMetting,
+            $lt: dateMettingEnd,
+          },
+        },
+        {
+          // Caso 2: La fecha de finalización de la cita está dentro del rango
+          dateMettingEnd: {
+            $gt: dateMetting,
+            $lte: dateMettingEnd,
+          },
+        },
+        {
+          // Caso 3: La cita abarca todo el rango
+          dateMetting: {
+            $lte: dateMetting,
+          },
+          dateMettingEnd: {
+            $gte: dateMettingEnd,
+          },
+        },
+      ],
     });
 
     if (dateExist) {
@@ -66,7 +110,9 @@ export const createMeeting = async (
       client,
       tattooArtist,
       dateMetting,
+      dateMettingEnd,
       typeIntervention,
+      price,
     });
 
     // Guarda la cita en la base de datos
@@ -97,12 +143,14 @@ export const editMeeting = async (
       throw error;
     }
 
-    console.log(currentUser.role);
     // Verificar permisos de edición
     if (
-      (currentUser.role === "user" && meeting.client.toString() !== currentUser.id) ||
-        (currentUser.role === "tatooArtist" &&  meeting.tattooArtist && meeting.tattooArtist.toString() !== currentUser.id) 
-        // ||  currentUser.role === "superadmin"
+      (currentUser.role === "user" &&
+        meeting.client.toString() !== currentUser.id) ||
+      (currentUser.role === "tatooArtist" &&
+        meeting.tattooArtist &&
+        meeting.tattooArtist.toString() !== currentUser.id)
+      // ||  currentUser.role === "superadmin"
     ) {
       const error = new Error("No tienes permiso para editar esta cita");
       (error as any).status = 403; // 403 Forbidden
