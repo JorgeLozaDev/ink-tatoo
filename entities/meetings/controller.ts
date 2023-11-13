@@ -1,5 +1,6 @@
 import express, { NextFunction, Request, Response } from "express";
 import Meetings from "./model";
+import User from "../users/model";
 import CONF from "../../core/config";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -7,29 +8,18 @@ import AuthenticatedRequest from "../../core/customInterfaces";
 
 // Controlador para crear una cita entre un usuario y un tatuador
 export const createMeeting = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const {
-      client,
-      tattooArtist,
-      dateMetting,
-      dateMettingEnd,
-      typeIntervention,
-      price,
-    } = req.body;
+    const { dateMetting, dateMettingEnd, typeIntervention, price } = req.body;
 
+    // Extraer el ID del usuario y su rol del token JWT
+    const { id: userIdFromToken, role: userRole } = req.user;
     // Crear un objeto para almacenar los campos faltantes
     const missingFields: string[] = [];
 
-    if (!client || client.trim() === "") {
-      missingFields.push("client");
-    }
-    if (!tattooArtist || tattooArtist.trim() === "") {
-      missingFields.push("tattooArtist");
-    }
     if (!dateMetting || dateMetting.trim() === "") {
       missingFields.push("dateMetting");
     }
@@ -65,6 +55,23 @@ export const createMeeting = async (
       );
       (error as any).status = 400;
       throw error;
+    }
+
+    let tattooArtist, client;
+
+    if (userRole === "user" && req.body.tattooArtist) {
+      // Si el usuario es un cliente y proporcionaron un tatuador, usa el ID proporcionado.
+      tattooArtist = req.body.tattooArtist;
+    } else if (userRole === "tatooArtist") {
+      // Si el usuario es un tatuador, busca aleatoriamente un cliente y usa su ID.
+      const randomClient = await User.findOne({ role: "user" });
+      if (randomClient) {
+        client = randomClient._id;
+      } else {
+        const error = new Error("No hay usuarios clientes disponibles");
+        (error as any).status = 404;
+        throw error;
+      }
     }
 
     // Verificar que el tatuador no tenga otra cita en el mismo rango de fechas
@@ -105,15 +112,44 @@ export const createMeeting = async (
       throw error;
     }
 
-    // Crea la nueva cita
-    const newMeeting = new Meetings({
+    // Crear un objeto para almacenar los campos de la cita
+    const meetingFields = {
       client,
       tattooArtist,
       dateMetting,
       dateMettingEnd,
       typeIntervention,
       price,
-    });
+    };
+
+    // Agregar el cliente y el tatuador según el rol del usuario que realiza la solicitud
+    if (userRole === "user") {
+      meetingFields.client = userIdFromToken; // ID del usuario desde el token
+      meetingFields.tattooArtist = tattooArtist; // ID del tatuador desde la búsqueda
+    } else if (userRole === "tattoo_artist") {
+      meetingFields.client = client; // ID del cliente desde el body
+      meetingFields.tattooArtist = userIdFromToken; // ID del tatuador desde el token
+    } else if (userRole === "superadmin") {
+      // Por ejemplo, supongamos que el cuerpo de la solicitud contiene los IDs del cliente y el tatuador
+      const { client, tattooArtist } = req.body;
+
+      // Verificar si los IDs proporcionados son válidos y existen en la base de datos
+      const clientExists = await User.findById(client);
+      const tattooArtistExists = await User.findById(tattooArtist);
+
+      if (!clientExists || !tattooArtistExists) {
+        const error = new Error("IDs de cliente o tatuador inválidos");
+        (error as any).status = 400;
+        throw error;
+      }
+
+      // Ahora podemos asignar los IDs proporcionados al cliente y al tatuador
+      meetingFields.client = client;
+      meetingFields.tattooArtist = tattooArtist;
+    }
+
+    // Crea la nueva cita con los campos definidos
+    const newMeeting = new Meetings(meetingFields);
 
     // Guarda la cita en la base de datos
     await newMeeting.save();
