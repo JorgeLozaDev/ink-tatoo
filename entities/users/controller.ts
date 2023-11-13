@@ -141,12 +141,24 @@ export const updateProfile = async (
 ) => {
   try {
     const { name, lastname, email, username, password, birthday } = req.body;
-    const userId = req.user.id; // Obtén el ID del usuario autenticado desde el middleware
-    const currentUser = req.user; // Obtén los datos del usuario autenticado
+    const userIdFromToken = req.user.id; // Obtén el ID del usuario autenticado desde el middleware
+    const userRole = req.user.role; // Obtén el rol del usuario autenticado
 
-    // Comprobar que solo el propio usuario o un superadmin pueden editar
-    if (currentUser.role !== "user" && currentUser.role !== "superadmin") {
-      const error = new Error("No tienes permiso para editar estos datos");
+    // Buscar al usuario por los campos proporcionados (name, lastname, email, username)
+    const userFound = await User.findOne({ email });
+
+    if (!userFound) {
+      const error = new Error("Usuario no encontrado");
+      (error as any).status = 404;
+      throw error;
+    }
+
+    // Verificar si el usuario actual es el propietario del perfil o es un superadmin
+    if (
+      userRole !== "superadmin" &&
+      userFound._id.toString() !== userIdFromToken
+    ) {
+      const error = new Error("No tienes permiso para modificar este perfil");
       (error as any).status = 403;
       throw error;
     }
@@ -175,15 +187,6 @@ export const updateProfile = async (
       throw error;
     }
 
-    // Busca al usuario por ID
-    const user = await User.findById(userId);
-
-    if (!user) {
-      const error = new Error("Usuario no encontrado");
-      (error as any).status = 404;
-      throw error;
-    }
-
     if (birthday && birthday.trim() != "") {
       // Verificar que la fecha sea válida (a partir de today)
       let userBirthday = new Date(birthday);
@@ -197,22 +200,26 @@ export const updateProfile = async (
         (error as any).status = 400;
         throw error;
       }
-      user.birthday = userBirthday;
+      userFound.birthday = userBirthday;
     }
     // Actualiza los datos personales del usuario
-    user.name = name;
-    user.lastname = lastname;
+    userFound.name = name;
+    userFound.lastname = lastname;
     // user.email = email;
-    user.username = username;
+    userFound.username = username;
     // Si la contraseña cambia, puedes volver a generar el token
     if (password && password.trim() != "") {
       // Encripta la nueva contraseña antes de almacenarla en la base de datos
       const hashedPassword = await bcrypt.hash(password, CONF.BCRYTP_LOOP);
-      user.password = hashedPassword;
+      userFound.password = hashedPassword;
 
       // Genera y firma un nuevo token JWT
       const token = jwt.sign(
-        { id: user._id, username: user.username, role: user.role },
+        {
+          id: userFound._id,
+          username: userFound.username,
+          role: userFound.role,
+        },
         CONF.JWT_SECRET,
         { expiresIn: "24h" }
       );
@@ -221,7 +228,7 @@ export const updateProfile = async (
         .status(200)
         .json({ message: "Datos personales actualizados con éxito", token });
     } else {
-      await user.save();
+      await userFound.save();
       res
         .status(200)
         .json({ message: "Datos personales actualizados con éxito" });
