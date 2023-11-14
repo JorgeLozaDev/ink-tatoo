@@ -13,7 +13,14 @@ export const createMeeting = async (
   next: NextFunction
 ) => {
   try {
-    const { dateMetting, dateMettingEnd, typeIntervention, price } = req.body;
+    const {
+      dateMetting,
+      dateMettingEnd,
+      typeIntervention,
+      price,
+      isUp,
+      isPaid,
+    } = req.body;
 
     // Extraer el ID del usuario y su rol del token JWT
     const { id: userIdFromToken, role: userRole } = req.user;
@@ -120,13 +127,15 @@ export const createMeeting = async (
       dateMettingEnd,
       typeIntervention,
       price,
+      isUp: isUp !== undefined ? isUp : true, // Verificar y asignar el valor o usar el valor por defecto
+      isPaid: isPaid !== undefined ? isPaid : false, // Verificar y asignar el valor o usar el valor por defecto
     };
 
     // Agregar el cliente y el tatuador según el rol del usuario que realiza la solicitud
     if (userRole === "user") {
       meetingFields.client = userIdFromToken; // ID del usuario desde el token
       meetingFields.tattooArtist = tattooArtist; // ID del tatuador desde la búsqueda
-    } else if (userRole === "tattoo_artist") {
+    } else if (userRole === "tatooArtist") {
       meetingFields.client = client; // ID del cliente desde el body
       meetingFields.tattooArtist = userIdFromToken; // ID del tatuador desde el token
     } else if (userRole === "superadmin") {
@@ -160,6 +169,85 @@ export const createMeeting = async (
   }
 };
 
+// export const editMeeting = async (
+//   req: AuthenticatedRequest,
+//   res: Response,
+//   next: NextFunction
+// ) => {
+//   try {
+//     const citaId = req.params.meetingId;
+//     const {
+//       fecha,
+//       tipoIntervencion,
+//       tatuador,
+//       client,
+//       isPaid,
+//       isDeleted,
+//       isUp,
+//     } = req.body;
+//     const currentUser = req.user; // Usuario actual autenticado
+
+//     // Buscar la cita por su ID
+//     const meeting = await Meetings.findById(citaId);
+
+//     if (!meeting) {
+//       const error = new Error("Cita no encontrada");
+//       (error as any).status = 404;
+//       throw error;
+//     }
+
+//     // Verificar permisos de edición
+//     if (
+//       (currentUser.role === "user" &&
+//         meeting.client.toString() !== currentUser.id) ||
+//       (currentUser.role === "tatooArtist" &&
+//         meeting.tattooArtist &&
+//         meeting.tattooArtist.toString() !== currentUser.id)
+//       // ||  currentUser.role === "superadmin"
+//     ) {
+//       const error = new Error("No tienes permiso para editar esta cita");
+//       (error as any).status = 403; // 403 Forbidden
+//       throw error;
+//     }
+
+//     // Verificar que la fecha sea válida (a partir de today)
+//     const dateMeet = new Date(fecha);
+//     const today = new Date();
+//     if (dateMeet <= today) {
+//       const error = new Error("La fecha de la cita debe ser a partir de hoy");
+//       (error as any).status = 400;
+//       throw error;
+//     }
+
+//     // Realizar la actualización de los campos según el rol del usuario
+//     if (currentUser.role === "user") {
+//       meeting.dateMetting = dateMeet || meeting.dateMetting;
+//       meeting.typeIntervention = tipoIntervencion || meeting.typeIntervention;
+//     } else if (currentUser.role === "tatooArtist") {
+//       meeting.dateMetting = dateMeet || meeting.dateMetting;
+//       meeting.typeIntervention = tipoIntervencion || meeting.typeIntervention;
+//       meeting.client = client || meeting.client;
+//     } else if (currentUser.role === "superadmin") {
+//       meeting.dateMetting = dateMeet || meeting.dateMetting;
+//       meeting.typeIntervention = tipoIntervencion || meeting.typeIntervention;
+//       meeting.client = client || meeting.client;
+//       meeting.tattooArtist = tatuador || meeting.tattooArtist;
+//     }
+
+//     // Actualizar los nuevos campos isPaid e isUp y controlar los valores por defecto
+//     meeting.isPaid = isPaid !== undefined ? isPaid : meeting.isPaid;
+//     meeting.isUp = isUp !== undefined ? isUp : meeting.isUp;
+//     meeting.isDeleted = isDeleted !== undefined ? isDeleted : meeting.isDeleted;
+
+//     // Guardar los cambios en la base de datos
+//     await meeting.save();
+
+//     res.status(200).json({ message: "Cita actualizada con éxito" });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 export const editMeeting = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -167,7 +255,17 @@ export const editMeeting = async (
 ) => {
   try {
     const citaId = req.params.meetingId;
-    const { fecha, tipoIntervencion, tatuador, client } = req.body;
+    const {
+      client,
+      tattooArtist,
+      dateMetting,
+      dateMettingEnd,
+      typeIntervention,
+      price,
+      isUp,
+      isPaid,
+      isDeleted,
+    } = req.body;
     const currentUser = req.user; // Usuario actual autenticado
 
     // Buscar la cita por su ID
@@ -179,13 +277,13 @@ export const editMeeting = async (
       throw error;
     }
 
+    console.log(currentUser.role)
+    console.log(currentUser.id)
+    console.log(meeting.tattooArtist?.toString())
     // Verificar permisos de edición
     if (
-      (currentUser.role === "user" &&
-        meeting.client.toString() !== currentUser.id) ||
-      (currentUser.role === "tatooArtist" &&
-        meeting.tattooArtist &&
-        meeting.tattooArtist.toString() !== currentUser.id)
+      (currentUser.role === "user" && meeting.client.toString() !== currentUser.id) ||
+      (currentUser.role === "tatooArtist" && meeting.tattooArtist &&  meeting.tattooArtist.toString() !== currentUser.id) 
       // ||  currentUser.role === "superadmin"
     ) {
       const error = new Error("No tienes permiso para editar esta cita");
@@ -193,30 +291,123 @@ export const editMeeting = async (
       throw error;
     }
 
-    // Verificar que la fecha sea válida (a partir de today)
-    const dateMeet = new Date(fecha);
-    const today = new Date();
-    if (dateMeet <= today) {
-      const error = new Error("La fecha de la cita debe ser a partir de hoy");
-      (error as any).status = 400;
-      throw error;
+    // Verificar si la fecha y la hora han cambiado
+    const isDateChanged =
+      dateMetting !== undefined &&
+      dateMettingEnd !== undefined &&
+      (meeting.dateMetting.toISOString() !==
+        new Date(dateMetting).toISOString() ||
+        meeting.dateMettingEnd.toISOString() !==
+          new Date(dateMettingEnd).toISOString());
+
+    // Si la fecha ha cambiado, realizar comprobaciones adicionales
+    if (isDateChanged) {
+      // Verificar que la fecha sea válida (a partir de today)
+      const dateMeet = new Date(dateMetting);
+      const today = new Date();
+      if (dateMeet <= today) {
+        const error = new Error("La fecha de la cita debe ser a partir de hoy");
+        (error as any).status = 400;
+        throw error;
+      }
+
+      // Verificar que dateMettingEnd no sea inferior a dateMetting
+      if (dateMettingEnd && new Date(dateMettingEnd) < dateMeet) {
+        const error = new Error(
+          "La fecha de finalización no puede ser anterior a la fecha de inicio"
+        );
+        (error as any).status = 400;
+        throw error;
+      }
+
+      // Verificar si se ha cambiado la fecha y el tatuador no tiene otra cita en ese rango de fechas
+      if (
+        dateMetting &&
+        dateMettingEnd &&
+        (dateMetting !== meeting.dateMetting.toString() ||
+          dateMettingEnd !== meeting.dateMettingEnd.toString())
+      ) {
+        const dateExist = await Meetings.findOne({
+          tattooArtist: meeting.tattooArtist,
+          $or: [
+            {
+              // Caso 1: La fecha de inicio de la cita está dentro del rango
+              dateMetting: {
+                $gte: dateMetting,
+                $lt: dateMettingEnd,
+              },
+            },
+            {
+              // Caso 2: La fecha de finalización de la cita está dentro del rango
+              dateMettingEnd: {
+                $gt: dateMetting,
+                $lte: dateMettingEnd,
+              },
+            },
+            {
+              // Caso 3: La cita abarca todo el rango
+              dateMetting: {
+                $lte: dateMetting,
+              },
+              dateMettingEnd: {
+                $gte: dateMettingEnd,
+              },
+            },
+          ],
+        });
+
+        if (dateExist) {
+          const error = new Error(
+            "El tatuador ya tiene una cita en esa fecha y hora"
+          );
+          (error as any).status = 409; // 409 Conflict
+          throw error;
+        }
+      }
     }
 
     // Realizar la actualización de los campos según el rol del usuario
     if (currentUser.role === "user") {
-      meeting.dateMetting = dateMeet || meeting.dateMetting;
-      meeting.typeIntervention = tipoIntervencion || meeting.typeIntervention;
+      // Si el cliente proporciona el id del tatuador, verificar y cambiar si es necesario
+      if (
+        tattooArtist &&
+        meeting.tattooArtist &&
+        meeting.tattooArtist.toString() !== tattooArtist
+      ) {
+        meeting.tattooArtist = tattooArtist;
+      }
     } else if (currentUser.role === "tatooArtist") {
-      meeting.dateMetting = dateMeet || meeting.dateMetting;
-      meeting.typeIntervention = tipoIntervencion || meeting.typeIntervention;
-      meeting.client = client || meeting.client;
+      // Si el tatuador proporciona el id del cliente, verificar y cambiar si es necesario
+      if (client && meeting.client.toString() !== client) {
+        meeting.client = client;
+      }
     } else if (currentUser.role === "superadmin") {
-      console.log("edicion super");
-      meeting.dateMetting = dateMeet || meeting.dateMetting;
-      meeting.typeIntervention = tipoIntervencion || meeting.typeIntervention;
-      meeting.client = client || meeting.client;
-      meeting.tattooArtist = tatuador || meeting.tattooArtist;
+      // Si el admin proporciona ambos ids, verificar y cambiar si es necesario
+      if (
+        tattooArtist &&
+        meeting.tattooArtist &&
+        meeting.tattooArtist.toString() !== tattooArtist
+      ) {
+        meeting.tattooArtist = tattooArtist;
+      }
+
+      if (client && meeting.client.toString() !== client) {
+        meeting.client = client;
+      }
     }
+
+    // Realizar la actualización de los campos según el rol del usuario
+    meeting.dateMetting =
+      dateMetting !== undefined ? new Date(dateMetting) : meeting.dateMetting;
+    meeting.dateMettingEnd =
+      dateMettingEnd !== undefined
+        ? new Date(dateMettingEnd)
+        : meeting.dateMettingEnd;
+    meeting.typeIntervention = typeIntervention || meeting.typeIntervention;
+    meeting.price = price !== undefined ? price : meeting.price;
+    meeting.isUp = isUp !== undefined ? isUp : meeting.isUp;
+    meeting.isPaid = isPaid !== undefined ? isPaid : meeting.isPaid;
+    meeting.isDeleted = isDeleted !== undefined ? isDeleted : meeting.isDeleted;
 
     // Guardar los cambios en la base de datos
     await meeting.save();

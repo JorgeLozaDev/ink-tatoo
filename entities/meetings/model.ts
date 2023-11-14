@@ -18,6 +18,8 @@ const meetingsSchema = new mongoose.Schema(
     },
     // Otros campos relacionados con la cita.
     isDeleted: { type: Boolean, default: false }, // Nuevo campo para el borrado lógico.
+    isUp: { type: Boolean, default: true }, // Nuevo campo para comprobar si la cita esta activa
+    isPaid: { type: Boolean, default: false }, // Nuevo campo para comprobar si la cita esta activa
     price: { type: Number },
   },
   {
