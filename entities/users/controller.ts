@@ -288,3 +288,28 @@ export const getAllTattooArtists = async (
     next(error);
   }
 };
+
+// Controlador para obtener todos los usuarios con rol "user"
+export const getAllUsers = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // Verificar si el usuario autenticado es un superadmin
+    const currentUser = req.user;
+
+    if (currentUser.role !== 'superadmin') {
+      const error = new Error('No tienes permisos para acceder a esta información');
+      (error as any).status = 403; // 403 Forbidden
+      throw error;
+    }
+
+    // Obtener todos los usuarios con rol de usuario
+    const users = await User.find({ role: 'user' }).exec();
+
+    res.status(200).json({ users });
+  } catch (error) {
+    next(error);
+  }
+};

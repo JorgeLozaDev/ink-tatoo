@@ -2,6 +2,7 @@ import express, { Request, Response } from "express";
 import CONF from "../../core/config";
 import {
   getAllTattooArtists,
+  getAllUsers,
   getProfile,
   loginUser,
   singUp,
@@ -15,5 +16,7 @@ router.post("/login", loginUser);
 router.put("/updateProfile", authMiddleware, updateProfile);
 router.get("/profile", authMiddleware, getProfile);
 router.get("/tattooArtists", authMiddleware, getAllTattooArtists);
+router.get('/', authMiddleware, getAllUsers);
+
 
 export = router;
