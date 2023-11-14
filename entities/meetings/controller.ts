@@ -169,85 +169,6 @@ export const createMeeting = async (
   }
 };
 
-// export const editMeeting = async (
-//   req: AuthenticatedRequest,
-//   res: Response,
-//   next: NextFunction
-// ) => {
-//   try {
-//     const citaId = req.params.meetingId;
-//     const {
-//       fecha,
-//       tipoIntervencion,
-//       tatuador,
-//       client,
-//       isPaid,
-//       isDeleted,
-//       isUp,
-//     } = req.body;
-//     const currentUser = req.user; // Usuario actual autenticado
-
-//     // Buscar la cita por su ID
-//     const meeting = await Meetings.findById(citaId);
-
-//     if (!meeting) {
-//       const error = new Error("Cita no encontrada");
-//       (error as any).status = 404;
-//       throw error;
-//     }
-
-//     // Verificar permisos de edición
-//     if (
-//       (currentUser.role === "user" &&
-//         meeting.client.toString() !== currentUser.id) ||
-//       (currentUser.role === "tatooArtist" &&
-//         meeting.tattooArtist &&
-//         meeting.tattooArtist.toString() !== currentUser.id)
-//       // ||  currentUser.role === "superadmin"
-//     ) {
-//       const error = new Error("No tienes permiso para editar esta cita");
-//       (error as any).status = 403; // 403 Forbidden
-//       throw error;
-//     }
-
-//     // Verificar que la fecha sea válida (a partir de today)
-//     const dateMeet = new Date(fecha);
-//     const today = new Date();
-//     if (dateMeet <= today) {
-//       const error = new Error("La fecha de la cita debe ser a partir de hoy");
-//       (error as any).status = 400;
-//       throw error;
-//     }
-
-//     // Realizar la actualización de los campos según el rol del usuario
-//     if (currentUser.role === "user") {
-//       meeting.dateMetting = dateMeet || meeting.dateMetting;
-//       meeting.typeIntervention = tipoIntervencion || meeting.typeIntervention;
-//     } else if (currentUser.role === "tatooArtist") {
-//       meeting.dateMetting = dateMeet || meeting.dateMetting;
-//       meeting.typeIntervention = tipoIntervencion || meeting.typeIntervention;
-//       meeting.client = client || meeting.client;
-//     } else if (currentUser.role === "superadmin") {
-//       meeting.dateMetting = dateMeet || meeting.dateMetting;
-//       meeting.typeIntervention = tipoIntervencion || meeting.typeIntervention;
-//       meeting.client = client || meeting.client;
-//       meeting.tattooArtist = tatuador || meeting.tattooArtist;
-//     }
-
-//     // Actualizar los nuevos campos isPaid e isUp y controlar los valores por defecto
-//     meeting.isPaid = isPaid !== undefined ? isPaid : meeting.isPaid;
-//     meeting.isUp = isUp !== undefined ? isUp : meeting.isUp;
-//     meeting.isDeleted = isDeleted !== undefined ? isDeleted : meeting.isDeleted;
-
-//     // Guardar los cambios en la base de datos
-//     await meeting.save();
-
-//     res.status(200).json({ message: "Cita actualizada con éxito" });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
-
 export const editMeeting = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -277,13 +198,13 @@ export const editMeeting = async (
       throw error;
     }
 
-    console.log(currentUser.role)
-    console.log(currentUser.id)
-    console.log(meeting.tattooArtist?.toString())
     // Verificar permisos de edición
     if (
-      (currentUser.role === "user" && meeting.client.toString() !== currentUser.id) ||
-      (currentUser.role === "tatooArtist" && meeting.tattooArtist &&  meeting.tattooArtist.toString() !== currentUser.id) 
+      (currentUser.role === "user" &&
+        meeting.client.toString() !== currentUser.id) ||
+      (currentUser.role === "tatooArtist" &&
+        meeting.tattooArtist &&
+        meeting.tattooArtist.toString() !== currentUser.id)
       // ||  currentUser.role === "superadmin"
     ) {
       const error = new Error("No tienes permiso para editar esta cita");
@@ -413,6 +334,105 @@ export const editMeeting = async (
     await meeting.save();
 
     res.status(200).json({ message: "Cita actualizada con éxito" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Controlador para borrar una cita (borrado lógico)
+export const deleteMeeting = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const citaId = req.params.meetingId;
+    const currentUser = req.user; // Usuario actual autenticado
+
+    // Buscar la cita por su ID
+    const meeting = await Meetings.findById(citaId);
+
+    if (!meeting) {
+      const error = new Error("Cita no encontrada");
+      (error as any).status = 404;
+      throw error;
+    }
+
+    // Verificar permisos para el borrado
+    if (
+      currentUser.role !== "superadmin" &&
+      (!meeting.client || meeting.client.toString() !== currentUser.id) &&
+      (!meeting.tattooArtist ||
+        meeting.tattooArtist.toString() !== currentUser.id)
+    ) {
+      const error = new Error("No tienes permiso para borrar esta cita");
+      (error as any).status = 403; // 403 Forbidden
+      throw error;
+    }
+
+    // Realizar el borrado lógico (marcar como eliminado)
+    meeting.isDeleted = true;
+
+    // Guardar los cambios en la base de datos
+    await meeting.save();
+
+    res
+      .status(200)
+      .json({ message: "Cita borrada con éxito (borrado lógico)" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Controlador para obtener las citas del usuario
+export const getUserMeetings = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const currentUser = req.user; // Usuario actual autenticado
+
+    // Obtener citas del usuario según su rol
+    let meetings: any[];
+
+    if (currentUser.role === "user") {
+      // Usuario: Obtener citas del cliente (pasadas y futuras)
+      meetings = await Meetings.find({
+        client: currentUser.id,
+        isDeleted: false,
+      })
+        .sort({ dateMetting: 1 })
+        .exec();
+    } else if (currentUser.role === "tatooArtist") {
+      // Tatuador: Obtener citas del tatuador (pasadas y futuras)
+      meetings = await Meetings.find({
+        tattooArtist: currentUser.id,
+        isDeleted: false,
+      })
+        .sort({ dateMetting: 1 })
+        .exec();
+    } else if (currentUser.role === "superadmin") {
+      // Superadmin: Obtener todas las citas (pasadas y futuras)
+      meetings = await Meetings.find({}).sort({ dateMetting: 1 }).exec();
+    } else {
+      const error = new Error("Rol de usuario no válido");
+      (error as any).status = 400;
+      throw error;
+    }
+
+    // Separar citas pasadas y futuras
+    const currentDate = new Date();
+
+    const upcomingMeetings = meetings.filter(
+      (meeting) => new Date(meeting.dateMetting) >= currentDate
+    );
+
+    const pastMeetings = meetings.filter(
+      (meeting) => new Date(meeting.dateMetting) < currentDate
+    );
+
+    res.status(200).json({ upcomingMeetings, pastMeetings });
   } catch (error) {
     next(error);
   }
