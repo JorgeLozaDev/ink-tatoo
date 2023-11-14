@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import CONF from "../../core/config";
 import {
+  deleteUser,
   getAllTattooArtists,
   getAllUsers,
   getProfile,
@@ -16,7 +17,7 @@ router.post("/login", loginUser);
 router.put("/updateProfile", authMiddleware, updateProfile);
 router.get("/profile", authMiddleware, getProfile);
 router.get("/tattooArtists", authMiddleware, getAllTattooArtists);
-router.get('/', authMiddleware, getAllUsers);
-
+router.get("/", authMiddleware, getAllUsers);
+router.delete("/:userId", authMiddleware, deleteUser);
 
 export = router;

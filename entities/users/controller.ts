@@ -313,3 +313,44 @@ export const getAllUsers = async (
     next(error);
   }
 };
+
+// Controlador para borrar un usuario (borrado lógico)
+export const deleteUser = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // Verificar si el usuario autenticado es un superadmin
+    const currentUser = req.user;
+
+    if (currentUser.role !== 'superadmin') {
+      const error = new Error('No tienes permisos para borrar usuarios');
+      (error as any).status = 403; // 403 Forbidden
+      throw error;
+    }
+
+    // Obtener el ID del usuario a borrar desde los parámetros de la solicitud
+    const userIdToDelete = req.params.userId;
+
+    // Buscar al usuario en la base de datos
+    const userToDelete = await User.findById(userIdToDelete);
+
+    // Verificar si el usuario existe
+    if (!userToDelete) {
+      const error = new Error('Usuario no encontrado');
+      (error as any).status = 404; // 404 Not Found
+      throw error;
+    }
+
+    // Realizar el borrado lógico actualizando el campo isDeleted a true
+    userToDelete.isDeleted = true;
+
+    // Guardar los cambios en la base de datos
+    await userToDelete.save();
+
+    res.status(200).json({ message: 'Usuario borrado con éxito' });
+  } catch (error) {
+    next(error);
+  }
+};
