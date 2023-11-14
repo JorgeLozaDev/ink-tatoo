@@ -261,3 +261,30 @@ export const getProfile = async (
     next(error);
   }
 };
+
+// Controlador para obtener todos los tatuadores
+export const getAllTattooArtists = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // Verificar si el usuario autenticado es un superadmin
+    const currentUser = req.user;
+
+    if (currentUser.role !== "superadmin") {
+      const error = new Error(
+        "No tienes permisos para acceder a esta información"
+      );
+      (error as any).status = 403; // 403 Forbidden
+      throw error;
+    }
+
+    // Obtener todos los usuarios con rol de tatuador
+    const tattooArtists = await User.find({ role: "tatooArtist" }).exec();
+
+    res.status(200).json({ tattooArtists });
+  } catch (error) {
+    next(error);
+  }
+};
