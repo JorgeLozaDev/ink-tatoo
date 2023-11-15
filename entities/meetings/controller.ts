@@ -437,3 +437,54 @@ export const getUserMeetings = async (
     next(error);
   }
 };
+
+// Controlador para ver una cita en detalle
+export const getMeetingDetails = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const meetingId = req.params.meetingId;
+
+    // Obtener la cita por su ID
+    const meeting = await Meetings.findById(meetingId);
+
+    if (!meeting) {
+      const error = new Error('Cita no encontrada');
+      (error as any).status = 404;
+      throw error;
+    }
+
+    // Obtener detalles del cliente por su ID
+    const clientDetails = await User.findById(meeting.client, 'name lastname email');
+
+    // Obtener detalles del tatuador por su ID
+    const tattooArtistDetails = await User.findById(meeting.tattooArtist, 'name lastname email');
+
+    // Construir la respuesta
+    const citaDetallada = {
+      client: {
+        name: clientDetails?.name,
+        lastname: clientDetails?.lastname,
+        email: clientDetails?.email,
+      },
+      tattooArtist: {
+        name: tattooArtistDetails?.name,
+        lastname: tattooArtistDetails?.lastname,
+        email: tattooArtistDetails?.email,
+      },
+      dateMetting: meeting.dateMetting,
+      dateMettingEnd: meeting.dateMettingEnd,
+      typeIntervention: meeting.typeIntervention,
+      isDeleted: meeting.isDeleted,
+      isUp: meeting.isUp,
+      isPaid: meeting.isPaid,
+      price: meeting.price,
+    };
+
+    res.status(200).json(citaDetallada);
+  } catch (error) {
+    next(error);
+  }
+};

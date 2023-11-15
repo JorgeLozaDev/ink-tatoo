@@ -5,12 +5,14 @@ import {
   createMeeting,
   deleteMeeting,
   editMeeting,
+  getMeetingDetails,
   getUserMeetings,
 } from "./controller";
 const router = express.Router();
 
 router.post("/create-meeting", authMiddleware, createMeeting);
 router.get("/", authMiddleware, getUserMeetings);
+router.get("/:meetingId", authMiddleware, getMeetingDetails);
 router.delete("/meeting/:meetingId", authMiddleware, deleteMeeting);
 router.put("/edit-meeting/:meetingId", authMiddleware, editMeeting);
 
