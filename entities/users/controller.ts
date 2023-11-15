@@ -299,14 +299,16 @@ export const getAllUsers = async (
     // Verificar si el usuario autenticado es un superadmin
     const currentUser = req.user;
 
-    if (currentUser.role !== 'superadmin') {
-      const error = new Error('No tienes permisos para acceder a esta información');
+    if (currentUser.role !== "superadmin") {
+      const error = new Error(
+        "No tienes permisos para acceder a esta información"
+      );
       (error as any).status = 403; // 403 Forbidden
       throw error;
     }
 
     // Obtener todos los usuarios con rol de usuario
-    const users = await User.find({ role: 'user' }).exec();
+    const users = await User.find({ role: "user" }).exec();
 
     res.status(200).json({ users });
   } catch (error) {
@@ -324,8 +326,8 @@ export const deleteUser = async (
     // Verificar si el usuario autenticado es un superadmin
     const currentUser = req.user;
 
-    if (currentUser.role !== 'superadmin') {
-      const error = new Error('No tienes permisos para borrar usuarios');
+    if (currentUser.role !== "superadmin") {
+      const error = new Error("No tienes permisos para borrar usuarios");
       (error as any).status = 403; // 403 Forbidden
       throw error;
     }
@@ -338,7 +340,7 @@ export const deleteUser = async (
 
     // Verificar si el usuario existe
     if (!userToDelete) {
-      const error = new Error('Usuario no encontrado');
+      const error = new Error("Usuario no encontrado");
       (error as any).status = 404; // 404 Not Found
       throw error;
     }
@@ -349,7 +351,50 @@ export const deleteUser = async (
     // Guardar los cambios en la base de datos
     await userToDelete.save();
 
-    res.status(200).json({ message: 'Usuario borrado con éxito' });
+    res.status(200).json({ message: "Usuario borrado con éxito" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const changeRolUser = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { userId, newRole } = req.body;
+
+    // Verificar si el usuario actual tiene permisos de superadmin
+    const currentUser = req.user;
+    if (currentUser.role !== "superadmin") {
+      const error = new Error("Acceso no autorizado");
+      (error as any).status = 403; // 403 Forbidden
+      throw error;
+    }
+
+    // Verificar si el nuevo rol es válido
+    const rolesValidos = ["user", "tatooArtist", "superadmin"];
+    if (!rolesValidos.includes(newRole)) {
+      const error = new Error("Rol inválido");
+      (error as any).status = 400; // 400 Bad Request
+      throw error;
+    }
+
+    // Cambiar el rol del usuario
+    const usuario = await User.findByIdAndUpdate(
+      userId,
+      { role: newRole },
+      { new: true }
+    );
+
+    if (!usuario) {
+      const error = new Error("Usuario no encontrado");
+      (error as any).status = 404;
+      throw error;
+    }
+
+    res.status(200).json({ message: "Rol de usuario actualizado con éxito" });
   } catch (error) {
     next(error);
   }
