@@ -1,10 +1,12 @@
 import express, { NextFunction, Request, Response } from "express";
 import Meetings from "./model";
 import User from "../users/model";
-import CONF from "../../core/config";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import AuthenticatedRequest from "../../core/customInterfaces";
+import {
+  isValidMeetingDateRange,
+  validateMeetingDates,
+  validateRequiredFields,
+} from "../../core/helpers/comun";
 
 // Controlador para crear una cita entre un usuario y un tatuador
 export const createMeeting = async (
@@ -24,45 +26,22 @@ export const createMeeting = async (
 
     // Extraer el ID del usuario y su rol del token JWT
     const { id: userIdFromToken, role: userRole } = req.user;
-    // Crear un objeto para almacenar los campos faltantes
-    const missingFields: string[] = [];
 
-    if (!dateMetting || dateMetting.trim() === "") {
-      missingFields.push("dateMetting");
-    }
-    if (!dateMettingEnd || dateMettingEnd.trim() === "") {
-      missingFields.push("dateMettingEnd");
-    }
-    if (!typeIntervention || typeIntervention.trim() === "") {
-      missingFields.push("typeIntervention");
-    }
+    // Definir campos requeridos
+    const camposRequeridos = [
+      "dateMetting",
+      "dateMettingEnd",
+      "typeIntervention",
+    ];
 
-    if (missingFields.length > 0) {
-      // Lanza un error con un código de estado HTTP personalizado
-      const error = new Error("Campos requeridos faltantes");
-      (error as any).status = 400;
-      (error as any).missingFields = missingFields;
-      throw error;
-    }
+    // Verificar campos requeridos utilizando la función de validación
+    validateRequiredFields(req.body, camposRequeridos);
 
-    // Verificar que la fecha sea válida (a partir de today)
-    const dateMeet = new Date(dateMetting);
-    const dateMeetEnd = new Date(dateMettingEnd);
-    const today = new Date();
-    if (dateMeet <= today) {
-      const error = new Error("La fecha de la cita debe ser a partir de hoy");
-      (error as any).status = 400;
-      throw error;
-    }
-
-    // Verificar que dateMettingEnd no sea inferior a dateMetting
-    if (dateMeetEnd < dateMeet) {
-      const error = new Error(
-        "La fecha de finalización no puede ser anterior a la fecha de inicio"
-      );
-      (error as any).status = 400;
-      throw error;
-    }
+    // Obtener fechas válidas utilizando el helper
+    const { dateMeet, dateMeetEnd } = validateMeetingDates(
+      dateMetting,
+      dateMettingEnd
+    );
 
     let tattooArtist, client;
 
@@ -82,36 +61,13 @@ export const createMeeting = async (
     }
 
     // Verificar que el tatuador no tenga otra cita en el mismo rango de fechas
-    const dateExist = await Meetings.findOne({
+    const isTattooArtistAvailable = await isValidMeetingDateRange(
       tattooArtist,
-      $or: [
-        {
-          // Caso 1: La fecha de inicio de la cita está dentro del rango
-          dateMetting: {
-            $gte: dateMetting,
-            $lt: dateMettingEnd,
-          },
-        },
-        {
-          // Caso 2: La fecha de finalización de la cita está dentro del rango
-          dateMettingEnd: {
-            $gt: dateMetting,
-            $lte: dateMettingEnd,
-          },
-        },
-        {
-          // Caso 3: La cita abarca todo el rango
-          dateMetting: {
-            $lte: dateMetting,
-          },
-          dateMettingEnd: {
-            $gte: dateMettingEnd,
-          },
-        },
-      ],
-    });
+      dateMetting,
+      dateMettingEnd
+    );
 
-    if (dateExist) {
+    if (!isTattooArtistAvailable) {
       const error = new Error(
         "El tatuador ya tiene una cita en esa fecha y hora"
       );
@@ -123,8 +79,8 @@ export const createMeeting = async (
     const meetingFields = {
       client,
       tattooArtist,
-      dateMetting,
-      dateMettingEnd,
+      dateMeet,
+      dateMeetEnd,
       typeIntervention,
       price,
       isUp: isUp !== undefined ? isUp : true, // Verificar y asignar el valor o usar el valor por defecto
@@ -248,36 +204,14 @@ export const editMeeting = async (
         (dateMetting !== meeting.dateMetting.toString() ||
           dateMettingEnd !== meeting.dateMettingEnd.toString())
       ) {
-        const dateExist = await Meetings.findOne({
-          tattooArtist: meeting.tattooArtist,
-          $or: [
-            {
-              // Caso 1: La fecha de inicio de la cita está dentro del rango
-              dateMetting: {
-                $gte: dateMetting,
-                $lt: dateMettingEnd,
-              },
-            },
-            {
-              // Caso 2: La fecha de finalización de la cita está dentro del rango
-              dateMettingEnd: {
-                $gt: dateMetting,
-                $lte: dateMettingEnd,
-              },
-            },
-            {
-              // Caso 3: La cita abarca todo el rango
-              dateMetting: {
-                $lte: dateMetting,
-              },
-              dateMettingEnd: {
-                $gte: dateMettingEnd,
-              },
-            },
-          ],
-        });
+        // Verificar que el tatuador no tenga otra cita en el mismo rango de fechas
+        const isTattooArtistAvailable = await isValidMeetingDateRange(
+          meeting.tattooArtist?.toString()!,
+          dateMetting,
+          dateMettingEnd
+        );
 
-        if (dateExist) {
+        if (!isTattooArtistAvailable) {
           const error = new Error(
             "El tatuador ya tiene una cita en esa fecha y hora"
           );
@@ -451,16 +385,22 @@ export const getMeetingDetails = async (
     const meeting = await Meetings.findById(meetingId);
 
     if (!meeting) {
-      const error = new Error('Cita no encontrada');
+      const error = new Error("Cita no encontrada");
       (error as any).status = 404;
       throw error;
     }
 
     // Obtener detalles del cliente por su ID
-    const clientDetails = await User.findById(meeting.client, 'name lastname email');
+    const clientDetails = await User.findById(
+      meeting.client,
+      "name lastname email"
+    );
 
     // Obtener detalles del tatuador por su ID
-    const tattooArtistDetails = await User.findById(meeting.tattooArtist, 'name lastname email');
+    const tattooArtistDetails = await User.findById(
+      meeting.tattooArtist,
+      "name lastname email"
+    );
 
     // Construir la respuesta
     const citaDetallada = {

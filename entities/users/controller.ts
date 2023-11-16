@@ -4,6 +4,10 @@ import CONF from "../../core/config";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import AuthenticatedRequest from "../../core/customInterfaces";
+import {
+  validateRequiredFields,
+  validateDateAndAge,
+} from "../../core/helpers/comun";
 
 export const singUp = async (
   req: Request,
@@ -15,54 +19,26 @@ export const singUp = async (
     const { name, lastname, email, username, password, role, birthday } =
       req.body;
 
-    // Crear un objeto para almacenar los campos faltantes
-    const missingFields: string[] = [];
+    // Definir campos requeridos
+    const camposRequeridos = [
+      "name",
+      "lastname",
+      "email",
+      "username",
+      "password",
+    ];
 
-    if (!name || name.trim() === "") {
-      missingFields.push("name");
-    }
-    if (!lastname || lastname.trim() === "") {
-      missingFields.push("lastname");
-    }
-    if (!email || email.trim() === "") {
-      missingFields.push("email");
-    }
-    if (!username || username.trim() === "") {
-      missingFields.push("username");
-    }
-    if (!password || password.trim() === "") {
-      missingFields.push("password");
-    }
+    // Verificar campos requeridos utilizando la función de validación
+    validateRequiredFields(req.body, camposRequeridos);
 
-    let userBirthday: Date | null = null; // Valor predeterminado
+    // Verificar fecha y obtener la fecha válida
+    const userBirthday = validateDateAndAge(birthday);
 
-    if (birthday && birthday.trim() != "") {
-      // Verificar que la fecha sea válida (a partir de today)
-      userBirthday = new Date(birthday);
-      const today = new Date();
-
-      const age = today.getFullYear() - userBirthday.getFullYear();
-      if (age < 16) {
-        const error = new Error(
-          "Debes tener al menos 16 años para registrarte"
-        );
-        (error as any).status = 400;
-        throw error;
-      }
-    }
     // Asignar el rol por defecto si "role" viene vacío
     const userRole = role || "user";
 
     // Encriptar la contraseña antes de almacenarla en la base de datos
     const hashedPassword = await bcrypt.hash(password, CONF.BCRYTP_LOOP);
-
-    if (missingFields.length > 0) {
-      // Lanza un error con un código de estado HTTP personalizado
-      const error = new Error("Campos requeridos faltantes");
-      (error as any).status = 400;
-      (error as any).missingFields = missingFields;
-      throw error;
-    }
 
     // Verificar si el usuario ya existe
     const existingUser = await User.findOne({ email });
@@ -163,45 +139,15 @@ export const updateProfile = async (
       throw error;
     }
 
-    // Crear un objeto para almacenar los campos faltantes
-    const missingFields: string[] = [];
+    // Definir campos requeridos
+    const camposRequeridos = ["name", "lastname", "username"];
 
-    if (!name || name.trim() === "") {
-      missingFields.push("name");
-    }
-    if (!lastname || lastname.trim() === "") {
-      missingFields.push("lastname");
-    }
-    // if (!email || email.trim() === "") {
-    //   missingFields.push("email");
-    // }
-    if (!username || username.trim() === "") {
-      missingFields.push("username");
-    }
+    // Verificar campos requeridos utilizando la función de validación
+    validateRequiredFields(req.body, camposRequeridos);
 
-    if (missingFields.length > 0) {
-      // Lanza un error con un código de estado HTTP personalizado
-      const error = new Error("Campos requeridos faltantes");
-      (error as any).status = 400;
-      (error as any).missingFields = missingFields;
-      throw error;
-    }
-
-    if (birthday && birthday.trim() != "") {
-      // Verificar que la fecha sea válida (a partir de today)
-      let userBirthday = new Date(birthday);
-      const today = new Date();
-
-      const age = today.getFullYear() - userBirthday.getFullYear();
-      if (age < 16) {
-        const error = new Error(
-          "Debes tener al menos 16 años para registrarte"
-        );
-        (error as any).status = 400;
-        throw error;
-      }
-      userFound.birthday = userBirthday;
-    }
+    const userBirthday = validateDateAndAge(birthday);
+    
+    userFound.birthday = userBirthday;
     // Actualiza los datos personales del usuario
     userFound.name = name;
     userFound.lastname = lastname;
