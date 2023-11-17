@@ -146,7 +146,7 @@ export const updateProfile = async (
     validateRequiredFields(req.body, camposRequeridos);
 
     const userBirthday = validateDateAndAge(birthday);
-    
+
     userFound.birthday = userBirthday;
     // Actualiza los datos personales del usuario
     userFound.name = name;
@@ -227,7 +227,9 @@ export const getAllTattooArtists = async (
     }
 
     // Obtener todos los usuarios con rol de tatuador
-    const tattooArtists = await User.find({ role: "tatooArtist" }).exec();
+    const tattooArtists = await User.find({ role: "tatooArtist" })
+      .sort({ name: 1, lastname: 1 })
+      .exec();
 
     res.status(200).json({ tattooArtists });
   } catch (error) {
@@ -254,7 +256,9 @@ export const getAllUsers = async (
     }
 
     // Obtener todos los usuarios con rol de usuario
-    const users = await User.find({ role: "user" }).exec();
+    const users = await User.find({ role: "user" })
+      .sort({ name: 1, lastname: 1 })
+      .exec();
 
     res.status(200).json({ users });
   } catch (error) {

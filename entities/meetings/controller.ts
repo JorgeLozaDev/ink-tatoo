@@ -79,8 +79,8 @@ export const createMeeting = async (
     const meetingFields = {
       client,
       tattooArtist,
-      dateMeet,
-      dateMeetEnd,
+      dateMetting: dateMeet,
+      dateMettingEnd: dateMeetEnd,
       typeIntervention,
       price,
       isUp: isUp !== undefined ? isUp : true, // Verificar y asignar el valor o usar el valor por defecto
