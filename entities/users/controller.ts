@@ -36,6 +36,7 @@ export const singUp = async (
 
     // Asignar el rol por defecto si "role" viene vacío
     const userRole = role || "user";
+    // const userRole =  "user";
 
     // Encriptar la contraseña antes de almacenarla en la base de datos
     const hashedPassword = await bcrypt.hash(password, CONF.BCRYTP_LOOP);
@@ -255,12 +256,29 @@ export const getAllUsers = async (
       throw error;
     }
 
-    // Obtener todos los usuarios con rol de usuario
+    // Obtener parámetros de paginación
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    // Calcular el índice de inicio
+    const startIndex = (page - 1) * limit;
+
+    // Obtener todos los usuarios con rol de usuario paginados
     const users = await User.find({ role: "user" })
       .sort({ name: 1, lastname: 1 })
+      .skip(startIndex)
+      .limit(limit)
       .exec();
 
-    res.status(200).json({ users });
+    // Obtener el total de usuarios
+    const totalUsers = await User.countDocuments({ role: "user" });
+
+    res.status(200).json({
+      users,
+      currentPage: page,
+      totalPages: Math.ceil(totalUsers / limit),
+      totalUsers,
+    });
   } catch (error) {
     next(error);
   }
@@ -345,6 +363,29 @@ export const changeRolUser = async (
     }
 
     res.status(200).json({ message: "Rol de usuario actualizado con éxito" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAllTattooArtistsActives = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // Verificar si el usuario autenticado es un superadmin
+    const currentUser = req.user;
+
+    // Obtener todos los usuarios con rol de tatuador
+    const tattooArtists = await User.find({
+      role: "tatooArtist",
+      isDeleted: false,
+    })
+      .sort({ name: 1, lastname: 1 })
+      .exec();
+
+    res.status(200).json({ tattooArtists });
   } catch (error) {
     next(error);
   }

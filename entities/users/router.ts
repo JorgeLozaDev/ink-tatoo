@@ -4,6 +4,7 @@ import {
   changeRolUser,
   deleteUser,
   getAllTattooArtists,
+  getAllTattooArtistsActives,
   getAllUsers,
   getProfile,
   loginUser,
@@ -18,6 +19,7 @@ router.post("/login", loginUser);
 router.put("/updateProfile", authMiddleware, updateProfile);
 router.get("/profile", authMiddleware, getProfile);
 router.get("/tattooArtists", authMiddleware, getAllTattooArtists);
+router.get("/availabletattooArtists", authMiddleware, getAllTattooArtistsActives);
 router.get("/", authMiddleware, getAllUsers);
 router.put("/change-rol",authMiddleware, changeRolUser);
 router.delete("/:userId", authMiddleware, deleteUser);

@@ -355,14 +355,31 @@ export const getUserMeetings = async (
       throw error;
     }
 
+    // Mapear las reuniones para obtener los detalles del tatuador
+    const meetingsWithTattooArtistDetails = await Promise.all(
+      meetings.map(async (meeting) => {
+        // Obtener detalles del tatuador por su ID
+        const tattooArtistDetails = await User.findById(
+          meeting.tattooArtist,
+          "name"
+        );
+
+        // Crear un nuevo objeto de reunión con los detalles del tatuador
+        return {
+          ...meeting.toJSON(),
+          tattooArtist: tattooArtistDetails ? tattooArtistDetails.name : null,
+        };
+      })
+    );
+
     // Separar citas pasadas y futuras
     const currentDate = new Date();
 
-    const upcomingMeetings = meetings.filter(
+    const upcomingMeetings = meetingsWithTattooArtistDetails.filter(
       (meeting) => new Date(meeting.dateMetting) >= currentDate
     );
 
-    const pastMeetings = meetings.filter(
+    const pastMeetings = meetingsWithTattooArtistDetails.filter(
       (meeting) => new Date(meeting.dateMetting) < currentDate
     );
 
@@ -399,7 +416,7 @@ export const getMeetingDetails = async (
     // Obtener detalles del tatuador por su ID
     const tattooArtistDetails = await User.findById(
       meeting.tattooArtist,
-      "name lastname email"
+      "_id name lastname email"
     );
 
     // Construir la respuesta
@@ -410,6 +427,7 @@ export const getMeetingDetails = async (
         email: clientDetails?.email,
       },
       tattooArtist: {
+        _id: tattooArtistDetails?._id,
         name: tattooArtistDetails?.name,
         lastname: tattooArtistDetails?.lastname,
         email: tattooArtistDetails?.email,
@@ -424,6 +442,149 @@ export const getMeetingDetails = async (
     };
 
     res.status(200).json(citaDetallada);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Controlador para ver una cita en detalle
+export const checkArtistAvilablityDates = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { tattooArtist, dateMetting, dateMettingEnd, typeIntervention } =
+      req.body;
+    const currentUser = req.user; // Usuario actual autenticado
+
+    // Definir campos requeridos
+    const camposRequeridos = [
+      "tattooArtist",
+      "dateMetting",
+      "dateMettingEnd",
+      "typeIntervention",
+    ];
+
+    // Verificar campos requeridos utilizando la función de validación
+    validateRequiredFields(req.body, camposRequeridos);
+
+    // Verificar que el tatuador no tenga otra cita en el mismo rango de fechas
+    const isTattooArtistAvailable = await isValidMeetingDateRange(
+      tattooArtist,
+      dateMetting,
+      dateMettingEnd
+    );
+
+    if (!isTattooArtistAvailable) {
+      const error = new Error(
+        "El tatuador ya tiene una cita en esa fecha y hora"
+      );
+      (error as any).status = 409; // 409 Conflict
+      throw error;
+    }
+    const tattooArtistExists = await User.findById(tattooArtist);
+
+    if (!tattooArtistExists) {
+      const error = new Error("IDs de cliente o tatuador inválidos");
+      (error as any).status = 400;
+      throw error;
+    }
+    res.status(201).json({ message: "El tatuador esta disponible" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const filterMettings = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // Obtener los campos del cuerpo de la solicitud
+    const { tattooArtist, dateMetting, dateMettingEnd, typeIntervention } =
+      req.body;
+
+    const currentUser = req.user; // Usuario actual autenticado
+    // Construir el objeto de filtro basado en los campos proporcionados
+    const filter: any = {};
+
+    // Verificar el rol del usuario actual
+    if (currentUser.rol != "superadmin") {
+      // Si es un usuario normal, solo ver sus propias citas
+      filter.user = currentUser._id;
+    }
+
+    if (tattooArtist) {
+      filter.tattooArtist = tattooArtist;
+    }
+    if (tattooArtist) {
+      filter.tattooArtist = tattooArtist;
+    }
+
+    if (dateMetting && dateMettingEnd) {
+      // Filtrar por un rango de fechas
+      filter.$or = [
+        {
+          $and: [
+            { dateMetting: { $gte: new Date(dateMetting) } },
+            { dateMettingEnd: { $lte: new Date(dateMettingEnd) } },
+          ],
+        },
+        {
+          $and: [
+            { dateMetting: { $gte: new Date(dateMetting) } },
+            { dateMetting: { $lte: new Date(dateMettingEnd) } },
+          ],
+        },
+        {
+          $and: [
+            { dateMettingEnd: { $gte: new Date(dateMetting) } },
+            { dateMettingEnd: { $lte: new Date(dateMettingEnd) } },
+          ],
+        },
+      ];
+    } else if (dateMetting) {
+      // Filtrar por fechas a partir de la fecha proporcionada
+      filter.$or = [
+        { dateMetting: { $gte: new Date(dateMetting) } },
+        { dateMettingEnd: { $gte: new Date(dateMetting) } },
+      ];
+    } else if (dateMettingEnd) {
+      // Filtrar por fechas hasta la fecha proporcionada
+      filter.$or = [
+        { dateMetting: { $lte: new Date(dateMettingEnd) } },
+        { dateMettingEnd: { $lte: new Date(dateMettingEnd) } },
+      ];
+    }
+
+    if (typeIntervention) {
+      filter.typeIntervention = typeIntervention;
+    }
+
+    // Realizar la consulta en la base de datos utilizando los filtros y ordenar por fecha de inicio
+    const meetings = await Meetings.find(filter).sort({ dateMetting: 1 });
+
+    // Mapear las reuniones para obtener los detalles del tatuador
+    const meetingsWithTattooArtistDetails = await Promise.all(
+      meetings.map(async (meeting) => {
+        // Obtener detalles del tatuador por su ID
+        const tattooArtistDetails = await User.findById(
+          meeting.tattooArtist,
+          "name lastname email"
+        );
+
+        // Crear un nuevo objeto de reunión con los detalles del tatuador
+        return {
+          ...meeting.toJSON(),
+          tattooArtist: tattooArtistDetails ? tattooArtistDetails.name : null,
+        };
+      })
+    );
+
+    // Devolver las citas encontradas con los nombres de los tatuadores
+    res.status(200).json({ meetings: meetingsWithTattooArtistDetails });
   } catch (error) {
     next(error);
   }
