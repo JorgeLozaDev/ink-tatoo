@@ -238,7 +238,7 @@ export const getAllTattooArtists = async (
   }
 };
 
-// Controlador para obtener todos los usuarios con rol "user"
+// Controlador para obtener usuarios con paginación y búsqueda
 export const getAllUsers = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -263,15 +263,26 @@ export const getAllUsers = async (
     // Calcular el índice de inicio
     const startIndex = (page - 1) * limit;
 
-    // Obtener todos los usuarios con rol de usuario paginados
-    const users = await User.find({ role: "user" })
+    // Obtener el parámetro de búsqueda del cuerpo de la solicitud
+    const searchQuery = req.body.search || '';
+
+    // Construir el objeto de filtro para la búsqueda
+    const searchFilter = {
+      $or: [
+        { name: { $regex: searchQuery, $options: 'i' } },
+        { email: { $regex: searchQuery, $options: 'i' } }
+      ]
+    };
+
+    // Obtener usuarios con paginación y búsqueda
+    const users = await User.find(searchFilter)
       .sort({ name: 1, lastname: 1 })
       .skip(startIndex)
       .limit(limit)
       .exec();
 
-    // Obtener el total de usuarios
-    const totalUsers = await User.countDocuments({ role: "user" });
+    // Contar el número total de usuarios que coinciden con la búsqueda
+    const totalUsers = await User.countDocuments(searchFilter);
 
     res.status(200).json({
       users,

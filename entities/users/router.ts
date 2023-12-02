@@ -21,6 +21,7 @@ router.get("/profile", authMiddleware, getProfile);
 router.get("/tattooArtists", authMiddleware, getAllTattooArtists);
 router.get("/availabletattooArtists", authMiddleware, getAllTattooArtistsActives);
 router.get("/", authMiddleware, getAllUsers);
+router.post("/", authMiddleware, getAllUsers);
 router.put("/change-rol",authMiddleware, changeRolUser);
 router.delete("/:userId", authMiddleware, deleteUser);
 
